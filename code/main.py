@@ -5,12 +5,14 @@ result_directory = "../results"
 
 
 def main():
+    # Used to read m00 and m01 but can be extended if necessary.
     for i in range(0, 2):
-        machine_name = f"m0{i}.tm"
+        machine_name = f"m{str(i).zfill(2)}.tm"  # zfill makes it always have at least 2 digits.
         in_directory = machine_directory + "/" + machine_name
         machine = read_machine(in_directory)
 
-        out_directory = result_directory + "/" + machine_name
+        machine_name = machine_name.split('.')[0]  # Prep to change .tm file to .txt file.
+        out_directory = result_directory + "/" + machine_name + ".txt"
         log_directory = result_directory + "/" + log_filename
         run_machine(machine, out_directory, log_directory, machine_name)
 
@@ -34,7 +36,7 @@ def run_machine(machine, machine_output_directory, log_directory, machine_name):
             tape.append('@0')    # Append the blank symbol to the end of tape.
             tape_head = 0        # Refers to the tape pointer, starting at index 0.
 
-            fail_count = 10000  # Failsafe for how many symbols can be read before quitting this string.
+            fail_count = 10000   # Failsafe for how many symbols can be read before quitting this string.
 
             # State info:
             # 0: start, 255: reject, 254: accept.
@@ -46,24 +48,29 @@ def run_machine(machine, machine_output_directory, log_directory, machine_name):
                     break
 
                 try:
-                    # Input the state and symbol into the machine.
+                    # Input the state and symbol into the machine
+                    # and get resulting state, symbol, and direction.
                     machine_output = machine[(str(state), tape[tape_head])]
                 except KeyError:
                     break  # Breaks if not a valid input into the dictionary.
+
                 # Update values based on what values the machine was fed.
                 state = int(machine_output[0])
                 tape[tape_head] = machine_output[1]
+                # Move the tape head by 1, but have it stay in bounds.
                 if machine_output[2] == 'L':
                     if tape_head > 0:
                         tape_head -= 1
                 else:
                     tape_head += 1
+                    # If tape runs out of space, add more blank symbols.
                     if tape_head == len(tape):
                         tape.append('@0')
             if state == 254:
                 accept_count += 1
                 string += '\n'
                 outfile.write(string)
+    # After writing the txt files, write the log file.
     with open(log_directory, 'a+') as outfile:
         line = f"{machine_name},{accept_count}\n"
         outfile.write(line)
@@ -77,10 +84,13 @@ def read_machine(machine_filename):
     :return: machine
     :rtype: dict
     """
+
+    # The machine takes a state and a symbol
+    # and outputs a state, symbol, and direction.
     machine = {}
-    # Format per line: <FromState, ReadSymbol, ToState, WriteSymbol, HeadDirection>
     with open(machine_filename, 'r') as infile:
         for line in infile.readlines():
+            # Format per line: <FromState, ReadSymbol, ToState, WriteSymbol, HeadDirection>
             line = line.strip().replace(' ', '').split(',')
             from_state = line[0]
             read_symbol = line[1]
